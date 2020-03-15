@@ -1,0 +1,174 @@
+﻿
+#pragma kernel CSMain
+#define data(x) Data[XY2I(x)]
+#define data_(x) Data_[XY2I(x)]
+
+struct PixelData {
+	float height;
+	float2 velocity;
+};
+
+int width;
+bool back;
+float seed;
+float intensity;
+RWStructuredBuffer<PixelData> Data;
+RWStructuredBuffer<PixelData> Data_;
+RWTexture2D<float4> ColorMap;
+RWTexture2D<float4> ColorMap_;
+RWTexture2D<float4> RenderingMap;
+RWTexture2D<float4> AdditionalMap;
+
+float IntNoise(uint2 id) {
+	id.x += (int)(seed * 1000000);
+	int x = ((int)id.x << 13) ^ ((int)id.x);
+	x += (int)id.y;
+	return (1.0 - ((x * (x * x * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0);
+}
+
+uint XY2I(uint2 pos) {
+	return pos.y * width + pos.x;
+}
+
+bool PosValid(int2 pos) {
+	return pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < width;
+}
+bool PosValidF(float2 pos) {
+	return pos.x >= 0 && pos.x <= width - 1 && pos.y >= 0 && pos.y <= width - 1;
+}
+
+float4 lerp(float4 v1, float4 v2, float t) {
+	return (1 - t) * v1 + t * v2;
+}
+float2 lerp2(float2 v1, float2 v2, float t) {
+	return (1 - t) * v1 + t * v2;
+}
+float lerp(float f1, float f2, float t) {
+	return (1 - t) * f1 + t * f2;
+}
+
+float4 SampleColorLinear(float2 pos) {
+	if (!PosValidF(pos)) {
+		return float4(0, 0, 0, 0);
+	}
+	else {
+		uint2 lower = uint2((uint)pos.x, (uint)pos.y);
+		float4 xlower = lerp(ColorMap[lower], ColorMap[lower + uint2(0, 1)], pos.y - lower.y);
+		float4 xupper = lerp(ColorMap[lower + uint2(1, 0)], ColorMap[lower + uint2(1, 1)], pos.y - lower.y);
+		return lerp(xlower, xupper, pos.x - lower.x);
+	}
+}
+
+float SampleHeightLinear(float2 pos) {
+	if (!PosValidF(pos)) {
+		return 0;
+	}
+	else {
+		uint2 lower = uint2((uint)pos.x, (uint)pos.y);
+		float4 xlower = lerp(data(lower).height, data(lower + uint2(0, 1)).height, pos.y - lower.y);
+		float4 xupper = lerp(data(lower + uint2(1, 0)).height, data(lower + uint2(1, 1)).height, pos.y - lower.y);
+		return lerp(xlower, xupper, pos.x - lower.x);
+	}
+}
+
+float SampleHeight(int2 pos) {
+	if (!PosValid(pos)) {
+		return 0;
+	}
+	else {
+		return Data[XY2I(pos)].height;
+	}
+}
+
+float2 SampleHeightAverage(int2 pos, float radius, int step) {
+	float res = 0;
+	int count = 0;
+	int2 start = uint2((uint)pos.x - radius, (uint)pos.y - radius);
+	int2 end = uint2((uint)pos.x + radius, (uint)pos.y + radius);
+	for (int x = start.x; x <= end.x; x += step) {
+		for (int y = start.y; y <= end.y; y += step) {
+			res += SampleHeight(int2(x, y));
+			count++;
+		}
+	}
+	return res / count;
+}
+
+float2 SampleVelocity(int2 pos) {
+	if (!PosValid(pos)) {
+		return float2(0, 0);
+	}
+	else {
+		return Data[XY2I(pos)].velocity;
+	}
+}
+
+float2 SampleVelocityAverage(int2 pos, float radius, int step) {
+	float2 res = float2(0, 0);
+	int count = 0;
+	int2 start = uint2((uint)pos.x - radius, (uint)pos.y - radius);
+	int2 end = uint2((uint)pos.x + radius, (uint)pos.y + radius);
+	for (int x = start.x; x <= end.x; x += step) {
+		for (int y = start.y; y <= end.y; y += step) {
+			res += SampleVelocity(int2(x, y));
+			count++;
+		}
+	}
+	return res / count;
+}
+
+float2 SampleVelocityCrossAverage(int2 pos, int radius) {
+	return (SampleVelocity(int2(pos.x + radius, pos.y)) + SampleVelocity(int2(pos.x - radius, pos.y)) + SampleVelocity(int2(pos.x, pos.y + radius)) + SampleVelocity(int2(pos.x, pos.y - radius))) / 4;
+}
+
+// (gradX, gradY, lap, h)
+float4 SampleGrad(uint2 pos) {
+	float4 res = float4(0, 0, 0, SampleHeight(pos));
+	float4 xpxnypyn = float4(
+		SampleHeight(uint2(pos.x + 1, pos.y)), SampleHeight(uint2(pos.x - 1, pos.y)),
+		SampleHeight(uint2(pos.x, pos.y + 1)), SampleHeight(uint2(pos.x, pos.y - 1))
+		);
+	res.x = xpxnypyn.x - xpxnypyn.y;
+	res.x /= 2;
+	res.y = xpxnypyn.z - xpxnypyn.w;
+	res.y /= 2;
+	res.z = (xpxnypyn.x + xpxnypyn.y + xpxnypyn.z + xpxnypyn.w) / 4 - res.w;
+	return res;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (back) {
+		ColorMap[id.xy] = ColorMap_[id.xy];
+		Data[XY2I(id.xy)] = Data_[XY2I(id.xy)];
+	}
+	else {
+		float2 vel = lerp2(SampleVelocityAverage(id.xy, 10, 4), SampleVelocityCrossAverage(id.xy, 3), 0.5);
+		float4 grad_height = SampleGrad(id.xy);
+		float height = SampleHeightAverage((int2)id.xy, 6.0, 4);
+		float4 color = ColorMap[id.xy];
+
+		float4 color_additional = AdditionalMap[uint2(width - 1 - id.x, id.y)];
+		float height_additional = (color_additional.x + color_additional.y + color_additional.z) > 0.01 ? 1 : 0;
+		float4 color_ref = SampleColorLinear(id.xy - vel * (IntNoise(id.xy) * 0.5 + 1));
+		float height_ref = SampleHeightLinear(id.xy - vel);
+
+		
+		height = lerp(height, height_ref, 0.9);
+		height *= 0.97;
+		height += height_additional * 0.08;
+		vel -= grad_height.xy * 15;
+		vel *= (1 - 0.01);
+		color = lerp(color, color_ref, 0.8);
+		color = lerp(color, color_additional, height_additional);
+
+		data_(id.xy).velocity = vel;
+		data_(id.xy).height = height;
+		ColorMap_[id.xy] = color;
+		//ColorMap_[id.xy] = float4(grad_height.w, -vel * 0.5, 1);
+
+		RenderingMap[id.xy] = color_ref * height * intensity;
+		//RenderingMap[id.xy] = AdditionalMap[id.xy];
+	}
+}
