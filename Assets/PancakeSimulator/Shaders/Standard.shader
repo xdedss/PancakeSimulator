@@ -116,7 +116,8 @@ Shader "Standard_Cut"
 			{
 				UNITY_SETUP_INSTANCE_ID(v);
 				VertexOutputForwardBase_ o;
-				//UNITY_INITIALIZE_OUTPUT(VertexOutputForwardBase, o);
+				UNITY_INITIALIZE_OUTPUT(VertexOutputForwardBase_, o);
+				//o.tex = float4(0, 0, 0, 0); o.eyeVec = float3(0, 0, 0); o.tangentToWorldAndPackedData[0] = float4(0, 0, 0, 0);  o.tangentToWorldAndPackedData[1] = float4(0, 0, 0, 0); o.tangentToWorldAndPackedData[2] = float4(0, 0, 0, 0); o.ambientOrLightmapUV = float4(0, 0, 0, 0);
 				UNITY_TRANSFER_INSTANCE_ID(v, o);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
@@ -160,7 +161,7 @@ Shader "Standard_Cut"
 
 			half4 fragBase_(VertexOutputForwardBase_ i) : SV_Target
 			{
-				if (i.posWorld.y < 0) discard;
+				if (i.posWorld.y < 0) discard; 
 
 				UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
 

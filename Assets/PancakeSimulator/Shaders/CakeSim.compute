@@ -37,7 +37,7 @@ bool PosValidF(float2 pos) {
 	return pos.x >= 0 && pos.x <= width - 1 && pos.y >= 0 && pos.y <= width - 1;
 }
 
-float4 lerp(float4 v1, float4 v2, float t) {
+float4 lerp4(float4 v1, float4 v2, float t) {
 	return (1 - t) * v1 + t * v2;
 }
 float2 lerp2(float2 v1, float2 v2, float t) {
@@ -53,9 +53,9 @@ float4 SampleColorLinear(float2 pos) {
 	}
 	else {
 		uint2 lower = uint2((uint)pos.x, (uint)pos.y);
-		float4 xlower = lerp(ColorMap[lower], ColorMap[lower + uint2(0, 1)], pos.y - lower.y);
-		float4 xupper = lerp(ColorMap[lower + uint2(1, 0)], ColorMap[lower + uint2(1, 1)], pos.y - lower.y);
-		return lerp(xlower, xupper, pos.x - lower.x);
+		float4 xlower = lerp4(ColorMap[lower], ColorMap[lower + uint2(0, 1)], pos.y - lower.y);
+		float4 xupper = lerp4(ColorMap[lower + uint2(1, 0)], ColorMap[lower + uint2(1, 1)], pos.y - lower.y);
+		return lerp4(xlower, xupper, pos.x - lower.x);
 	}
 }
 
@@ -65,9 +65,9 @@ float SampleHeightLinear(float2 pos) {
 	}
 	else {
 		uint2 lower = uint2((uint)pos.x, (uint)pos.y);
-		float4 xlower = lerp(data(lower).height, data(lower + uint2(0, 1)).height, pos.y - lower.y);
-		float4 xupper = lerp(data(lower + uint2(1, 0)).height, data(lower + uint2(1, 1)).height, pos.y - lower.y);
-		return lerp(xlower, xupper, pos.x - lower.x);
+		float xlower = lerp(data(lower).height, data(lower + uint2(0, 1)).height, pos.y - lower.y);
+		float xupper = lerp(data(lower + uint2(1, 0)).height, data(lower + uint2(1, 1)).height, pos.y - lower.y);
+		return lerp(xlower, xupper, pos.x - (float)lower.x);
 	}
 }
 
@@ -80,11 +80,11 @@ float SampleHeight(int2 pos) {
 	}
 }
 
-float2 SampleHeightAverage(int2 pos, float radius, int step) {
+float SampleHeightAverage(int2 pos, int radius, int step) {
 	float res = 0;
 	int count = 0;
-	int2 start = uint2((uint)pos.x - radius, (uint)pos.y - radius);
-	int2 end = uint2((uint)pos.x + radius, (uint)pos.y + radius);
+	int2 start = int2(pos.x - radius, pos.y - radius);
+	int2 end = int2(pos.x + radius, pos.y + radius);
 	for (int x = start.x; x <= end.x; x += step) {
 		for (int y = start.y; y <= end.y; y += step) {
 			res += SampleHeight(int2(x, y));
@@ -103,11 +103,11 @@ float2 SampleVelocity(int2 pos) {
 	}
 }
 
-float2 SampleVelocityAverage(int2 pos, float radius, int step) {
+float2 SampleVelocityAverage(int2 pos, int radius, int step) {
 	float2 res = float2(0, 0);
 	int count = 0;
-	int2 start = uint2((uint)pos.x - radius, (uint)pos.y - radius);
-	int2 end = uint2((uint)pos.x + radius, (uint)pos.y + radius);
+	int2 start = int2(pos.x - radius, pos.y - radius);
+	int2 end = int2(pos.x + radius, pos.y + radius);
 	for (int x = start.x; x <= end.x; x += step) {
 		for (int y = start.y; y <= end.y; y += step) {
 			res += SampleVelocity(int2(x, y));
@@ -144,9 +144,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		Data[XY2I(id.xy)] = Data_[XY2I(id.xy)];
 	}
 	else {
-		float2 vel = lerp2(SampleVelocityAverage(id.xy, 10, 4), SampleVelocityCrossAverage(id.xy, 3), 0.5);
+		float2 vel = lerp2(SampleVelocityAverage((int2)id.xy, 10, 4), SampleVelocityCrossAverage(id.xy, 3), 0.5);
+		//float2 vel = SampleVelocityAverage(id.xy, 10, 4);
 		float4 grad_height = SampleGrad(id.xy);
-		float height = SampleHeightAverage((int2)id.xy, 6.0, 4);
+		float height = SampleHeightAverage((int2)id.xy, 6, 4);
 		float4 color = ColorMap[id.xy];
 
 		float4 color_additional = AdditionalMap[uint2(width - 1 - id.x, id.y)];
@@ -156,12 +157,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 		
 		height = lerp(height, height_ref, 0.9);
-		height *= 0.97;
+		height *= (1 - 0.03);
 		height += height_additional * 0.08;
 		vel -= grad_height.xy * 15;
-		vel *= (1 - 0.01);
-		color = lerp(color, color_ref, 0.8);
-		color = lerp(color, color_additional, height_additional);
+		vel *= (1 - 0.02);
+		vel = lerp2(vel, float2(0, 0), height_additional);
+		color = lerp4(color, color_ref, 0.8);
+		color = lerp4(color, color_additional, height_additional);
 
 		data_(id.xy).velocity = vel;
 		data_(id.xy).height = height;
