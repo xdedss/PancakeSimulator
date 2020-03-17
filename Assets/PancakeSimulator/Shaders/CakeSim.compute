@@ -161,7 +161,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		height += height_additional * 0.08;
 		vel -= grad_height.xy * 15;
 		vel *= (1 - 0.02);
-		vel = lerp2(vel, float2(0, 0), height_additional);
+		vel = lerp2(vel, float2(0, 0), height_additional * 0.08);
 		color = lerp4(color, color_ref, 0.8);
 		color = lerp4(color, color_additional, height_additional);
 

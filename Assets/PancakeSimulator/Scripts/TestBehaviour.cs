@@ -7,7 +7,7 @@ public class TestBehaviour : MonoBehaviour
     public ComputeShader shader;
     public Shader unlit;
     public int width;
-    public Material panMat;
+    public Material[] panMat;
     public Texture2D testTex;
     public Camera observeCam;
 
@@ -19,7 +19,10 @@ public class TestBehaviour : MonoBehaviour
     void Start()
     {
         sim = new PanSim(width, shader);
-        panMat.mainTexture = sim.renderingMap;
+        foreach(var mat in panMat)
+        {
+            mat.mainTexture = sim.renderingMap;
+        }
         observeCam.targetTexture = sim.additionalMap;
     }
     

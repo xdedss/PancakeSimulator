@@ -7,13 +7,13 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: pan
-  m_Shader: {fileID: 4800000, guid: 6a31b12e00f58e84093ea4561be275f5, type: 3}
+  m_Name: Depth_Only
+  m_Shader: {fileID: 4800000, guid: 777b04c3765c6194e8d29b7fe5949e59, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 3000
+  m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
   m_SavedProperties:

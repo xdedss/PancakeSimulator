@@ -160,7 +160,7 @@ Shader "Standard_Cut"
 
 
 			half4 fragBase_(VertexOutputForwardBase_ i) : SV_Target
-			{
+			{ 
 				if (i.posWorld.y < 0) discard; 
 
 				UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
