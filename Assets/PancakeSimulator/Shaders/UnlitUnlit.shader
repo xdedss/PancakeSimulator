@@ -23,6 +23,7 @@
             #pragma multi_compile_fog
 
             #include "UnityCG.cginc"
+			#include "PancakeUtil.cginc"
 
             struct appdata
             {
@@ -44,6 +45,7 @@
             v2f vert (appdata v)
             {
                 v2f o;
+				v.vertex = pancake_WarpVertex(v.vertex);
                 o.vertex = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 UNITY_TRANSFER_FOG(o,o.vertex);

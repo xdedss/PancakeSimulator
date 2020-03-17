@@ -20,6 +20,7 @@ Shader "Custom/ProjectorLight" {
 			#pragma fragment frag
 			#pragma multi_compile_fog
 			#include "UnityCG.cginc"
+			#include "PancakeUtil.cginc"
 
 			struct v2f {
 				float4 uv0 : TEXCOORD0;
@@ -34,6 +35,9 @@ Shader "Custom/ProjectorLight" {
 			v2f vert(float4 vertex : POSITION)
 			{
 				v2f o;
+
+				vertex = pancake_WarpVertex(vertex);
+
 				o.pos = UnityObjectToClipPos(vertex);
 				o.uv0 = mul(unity_Projector, vertex);
 				o.uvFalloff = mul(unity_ProjectorClip, vertex);
@@ -52,6 +56,7 @@ Shader "Custom/ProjectorLight" {
 				fixed4 fColor = tex2Dproj(_FalloffTex, UNITY_PROJ_COORD(i.uvFalloff));
 				//lerp(fixed4(1, 1, 1, 0), texS, texF.a);
 				fixed4 res = mainColor * fColor;
+				if (fColor.r > 0.95) res *= 10;
 
 				return res;
 			}

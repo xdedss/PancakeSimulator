@@ -91,6 +91,7 @@ Shader "Standard_Cut"
             #pragma vertex vertForwardBase_
             #pragma fragment fragBase_
             #include "UnityStandardCoreForward.cginc"
+			#include "PancakeUtil.cginc"
 			
 			struct VertexOutputForwardBase_
 			{
@@ -122,6 +123,8 @@ Shader "Standard_Cut"
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
 				float4 posWorld = mul(unity_ObjectToWorld, v.vertex);
+				posWorld = pancake_Warp(posWorld);
+				v.vertex = mul(unity_WorldToObject, posWorld);
 				o.posWorld = posWorld.xyz;
 				o.pos = UnityObjectToClipPos(v.vertex);
 
